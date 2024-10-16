@@ -56,7 +56,7 @@ class Automaton implements IAutomaton {
 		const text = fs.readFileSync(filePath, 'utf8').trim()
 		const lines = text.split('\n').map(line => line.trim()).filter(line => !!line)
 
-		const [_, ...stateHeaders] = lines[0].split('').map(str => str.trim())
+		const [_, ...stateHeaders] = lines[0].split(';').map(str => str.trim())
 
 		const automaton: MealyAutomaton = {
 			type: 'Mealy',
@@ -66,7 +66,7 @@ class Automaton implements IAutomaton {
 		}
 
 		lines.slice(1).forEach(line => {
-			const [inputSignal, ...transitions] = line.split('').map(str => str.trim())
+			const [inputSignal, ...transitions] = line.split(';').map(str => str.trim())
 
 			automaton.inputSignals.push(inputSignal)
 
@@ -90,8 +90,8 @@ class Automaton implements IAutomaton {
 		const text = fs.readFileSync(filePath, 'utf8').trim()
 		const lines = text.split('\n').map(line => line.trim()).filter(line => !!line)
 
-		const [_, ...outputSymbols] = lines[0].split('').map(str => str.trim())
-		const [__, ...stateHeaders] = lines[1].split('').map(str => str.trim())
+		const [_, ...outputSymbols] = lines[0].split(';').map(str => str.trim())
+		const [__, ...stateHeaders] = lines[1].split(';').map(str => str.trim())
 
 		const automaton: MooreAutomaton = {
 			type: 'Moore',
@@ -106,7 +106,7 @@ class Automaton implements IAutomaton {
 		})
 
 		lines.slice(2).forEach(line => {
-			const [inputSignal, ...transitions] = line.split('').map(str => str.trim())
+			const [inputSignal, ...transitions] = line.split(';').map(str => str.trim())
 
 			automaton.inputSignals.push(inputSignal)
 
@@ -127,7 +127,7 @@ class Automaton implements IAutomaton {
 	private static writeMealy(filePath: string, automaton: MealyAutomaton): void {
 		const {states, inputSignals, transitions} = automaton
 
-		const header = [''].concat(states).join('')
+		const header = [''].concat(states).join(';')
 		const lines: string[] = [header]
 
 		inputSignals.forEach(inputSignal => {
@@ -139,7 +139,7 @@ class Automaton implements IAutomaton {
 				return '-'
 			})
 
-			const line = [inputSignal].concat(transitionStrings).join('')
+			const line = [inputSignal].concat(transitionStrings).join(';')
 			lines.push(line)
 		})
 
@@ -149,8 +149,8 @@ class Automaton implements IAutomaton {
 	private static writeMoore(filePath: string, automaton: MooreAutomaton): void {
 		const {states, inputSignals, transitions, stateOutputs} = automaton
 
-		const outputLine = [''].concat(states.map(state => stateOutputs.get(state) || '')).join('')
-		const statesLine = [''].concat(states).join('')
+		const outputLine = [''].concat(states.map(state => stateOutputs.get(state) || '')).join(';')
+		const statesLine = [''].concat(states).join(';')
 
 		const lines: string[] = [outputLine, statesLine]
 
@@ -163,7 +163,7 @@ class Automaton implements IAutomaton {
 				return '-'
 			})
 
-			const line = [inputSignal].concat(transitionStrings).join('')
+			const line = [inputSignal].concat(transitionStrings).join(';')
 			lines.push(line)
 		})
 
@@ -198,7 +198,6 @@ class Automaton implements IAutomaton {
 
 		automaton.transitions.forEach((inputMap, currentState) => {
 			inputMap.forEach((transition, inputSignal) => {
-				console.log({currentState})
 				const {nextState} = transition
 				const label = inputSignal
 				g.addEdge(currentState, nextState, {label})
