@@ -23,7 +23,7 @@ type MealyAutomaton = BaseAutomaton & {
 
 type TransitionMoore = {
 	nextState: State
-};
+}
 
 type MooreTransitions = Map<State, Map<InputSignal, TransitionMoore>>
 
