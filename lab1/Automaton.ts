@@ -1,6 +1,13 @@
 import * as fs from 'node:fs'
 import * as graphviz from 'graphviz'
-import {AutomatonType, MealyAutomaton, MooreAutomaton} from './types'
+import {
+	AutomatonType, InputSignal,
+	MealyAutomaton, MealyTransitions,
+	MooreAutomaton,
+	MooreStateOutputs, MooreTransitions,
+	OutputSignal,
+	State, TransitionMealy, TransitionMoore,
+} from './types'
 import {convertMooreToMealy, convertMealyToMoore} from './utils'
 
 const NAME_DIVIDER = ';'
@@ -8,6 +15,7 @@ const NAME_DIVIDER = ';'
 interface IAutomaton {
 	read: (filePath: string, type: AutomatonType) => void,
 	write: (filePath: string, type: AutomatonType) => void,
+	minimize: () => void,
 	saveGraph: (filePath: string, type: AutomatonType) => void,
 }
 
@@ -38,6 +46,21 @@ class Automaton implements IAutomaton {
 				break
 			case "Moore":
 				Automaton.writeMoore(filePath, Automaton.convertToMoore(this.automaton))
+				break
+		}
+	}
+
+	public minimize(): void {
+		if (this.automaton === undefined) {
+			return
+		}
+
+		switch (this.automaton.type) {
+			case "Mealy":
+				this.automaton = Automaton.minimizeMealy(this.automaton)
+				break
+			case "Moore":
+				this.automaton = Automaton.minimizeMoore(this.automaton)
 				break
 		}
 	}
@@ -224,8 +247,192 @@ class Automaton implements IAutomaton {
 
 		return convertMooreToMealy(automaton)
 	}
-}
 
+	private static minimizeMealy(automaton: MealyAutomaton): MealyAutomaton {
+		const {states, inputSignals, transitions} = automaton;
+
+		let partition: State[][] = [states];
+		let newPartition: State[][] = [];
+
+		const getTransition = (state: State, signal: InputSignal): TransitionMealy | undefined => {
+			return transitions.get(state)?.get(signal);
+		};
+
+		let changed = true;
+		while (changed) {
+			changed = false;
+
+			newPartition = [];
+
+			partition.forEach(group => {
+				const subGroups: State[][] = [];
+
+				group.forEach(state => {
+					let addedToSubGroup = false;
+
+					for (let subGroup of subGroups) {
+						const representative = subGroup[0];
+
+						const isEquivalent = inputSignals.every(signal => {
+							const stateTransition = getTransition(state, signal);
+							const repTransition = getTransition(representative, signal);
+
+							return stateTransition?.output === repTransition?.output &&
+								partition.find(group => group.includes(stateTransition?.nextState)) ===
+								partition.find(group => group.includes(repTransition?.nextState));
+						});
+
+						if (isEquivalent) {
+							subGroup.push(state);
+							addedToSubGroup = true;
+							break;
+						}
+					}
+
+					if (!addedToSubGroup) {
+						subGroups.push([state]);
+					}
+				});
+
+				newPartition.push(...subGroups);
+			});
+
+			if (newPartition.length !== partition.length) {
+				changed = true;
+				partition = newPartition;
+			}
+		}
+
+		const minimizedStates: State[] = newPartition.map((group, index) => `q${index}`);
+		const minimizedTransitions: MealyTransitions = new Map();
+
+		newPartition.forEach((group, index) => {
+			const representative = group[0];
+			const newState = `q${index}`;
+
+			const stateTransitions = new Map<InputSignal, TransitionMealy>();
+
+			inputSignals.forEach(signal => {
+				const transition = getTransition(representative, signal);
+				if (transition) {
+					const nextStateIndex = newPartition.findIndex(group => group.includes(transition.nextState));
+					stateTransitions.set(signal, {
+						nextState: `q${nextStateIndex}`,
+						output: transition.output,
+					});
+				}
+			});
+
+			minimizedTransitions.set(newState, stateTransitions);
+		});
+
+		return {
+			type: 'Mealy',
+			states: minimizedStates,
+			inputSignals,
+			transitions: minimizedTransitions,
+		};
+	}
+
+
+	private static minimizeMoore(automaton: MooreAutomaton): MooreAutomaton {
+		const {states, inputSignals, stateOutputs, transitions} = automaton;
+
+		let partition: State[][] = [];
+		const outputToStatesMap = new Map<OutputSignal, State[]>();
+
+		states.forEach((state) => {
+			const output = stateOutputs.get(state);
+			if (!outputToStatesMap.has(output)) {
+				outputToStatesMap.set(output, []);
+			}
+			outputToStatesMap.get(output)!.push(state);
+		});
+
+		outputToStatesMap.forEach((statesWithSameOutput) => {
+			partition.push(statesWithSameOutput);
+		});
+
+		let newPartition: State[][] = [];
+
+		const getNextStateGroup = (state: State, signal: InputSignal): State[] | undefined => {
+			const nextState = transitions.get(state)?.get(signal)?.nextState;
+			return partition.find(group => group.includes(nextState));
+		};
+
+		let changed = true;
+		while (changed) {
+			changed = false;
+
+			newPartition = [];
+
+			partition.forEach(group => {
+				const subGroups: State[][] = [];
+
+				group.forEach(state => {
+					let addedToSubGroup = false;
+
+					for (let subGroup of subGroups) {
+						const representative = subGroup[0];
+
+						const isEquivalent = inputSignals.every(signal => {
+							const stateGroup = getNextStateGroup(state, signal);
+							const repGroup = getNextStateGroup(representative, signal);
+							return stateGroup === repGroup;
+						});
+
+						if (isEquivalent) {
+							subGroup.push(state);
+							addedToSubGroup = true;
+							break;
+						}
+					}
+
+					if (!addedToSubGroup) {
+						subGroups.push([state]);
+					}
+				});
+
+				newPartition.push(...subGroups);
+			});
+
+			if (newPartition.length !== partition.length) {
+				changed = true;
+				partition = newPartition;
+			}
+		}
+
+		const minimizedStates: State[] = newPartition.map((group, index) => `q${index}`);
+		const minimizedStateOutputs: MooreStateOutputs = new Map();
+		const minimizedTransitions: MooreTransitions = new Map();
+
+		newPartition.forEach((group, index) => {
+			const representative = group[0];
+			const newState = `q${index}`;
+			minimizedStateOutputs.set(newState, stateOutputs.get(representative)!);
+
+			const stateTransitions = new Map<InputSignal, TransitionMoore>();
+
+			inputSignals.forEach(signal => {
+				const nextState = getNextStateGroup(representative, signal);
+				if (nextState) {
+					const newNextStateIndex = newPartition.findIndex(group => group.includes(nextState[0]));
+					stateTransitions.set(signal, {nextState: `q${newNextStateIndex}`});
+				}
+			});
+
+			minimizedTransitions.set(newState, stateTransitions);
+		});
+
+		return {
+			type: 'Moore',
+			states: minimizedStates,
+			inputSignals,
+			stateOutputs: minimizedStateOutputs,
+			transitions: minimizedTransitions,
+		};
+	}
+}
 
 export {
 	Automaton,
