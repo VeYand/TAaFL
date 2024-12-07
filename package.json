@@ -1,10 +1,9 @@
 {
   "scripts": {
-    "start": "npx tsx lab1-2/main.ts"
+    "lab1-2": "npx tsx lab1-2/main.ts",
+    "lab3": "npx tsx lab3/main.ts"
   },
   "devDependencies": {
-    "@types/d3": "^7.4.3",
-    "@types/express": "^5.0.0",
     "@types/graphviz": "^0.0.39",
     "@types/node": "^22.7.5",
     "ts-node": "^10.9.2",
