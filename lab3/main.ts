@@ -1,3 +1,6 @@
+import * as fs from 'fs';
+import * as readline from 'readline';
+
 type Grammar = {
 	type: 'left' | 'right';
 	states: {
@@ -118,7 +121,6 @@ const getLeftNextStates = (grammar: Grammar, fromState: string, signal: string):
 		}
 	}
 
-
 	if (!nextStates.length) {
 		return '-'
 	}
@@ -208,25 +210,31 @@ const printGrammarTable = (
 	return result;
 };
 
-const nkaTableToDkaTable = (table: Map<string, Map<string, string>>) => {
-	// todo
-}
+const main = async () => {
+	const rl = readline.createInterface({
+		input: process.stdin,
+		output: process.stdout,
+	});
 
-const main = () => {
-	const rightGrammar = 'S -> aS | aB | cS | c\n' +
-		'B -> bB | aB | a\n';
+	rl.question('Введите путь к файлу с грамматикой: ', async (filePath) => {
 
-	const leftGrammar = '' +
-		'S -> A0 | A1 | B1 | 0 | 1\n' +
-		'A -> A1 | B1 | 1\n' +
-		'B -> A0';
+		fs.readFile(filePath, 'utf8', async (err, data) => {
+			if (err) {
+				console.error(`Ошибка чтения файла: ${err.message}`);
+				rl.close();
+				return;
+			}
 
-	const rightTable = grammarToTable(parseInput(rightGrammar));
-	const leftTable = grammarToTable(parseInput(leftGrammar));
-
-	console.log(printGrammarTable(rightTable));
-	console.log('\n\n');
-	console.log(printGrammarTable(leftTable));
+			try {
+				const grammarTable = grammarToTable(parseInput(data));
+				console.log(printGrammarTable(grammarTable));
+			} catch (error) {
+				console.error(`Ошибка при парсинге грамматики: ${error.message}`);
+			} finally {
+				rl.close();
+			}
+		});
+	});
 };
 
 if (require.main === module) {
