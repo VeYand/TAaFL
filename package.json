@@ -1,7 +1,7 @@
 {
   "scripts": {
     "lab1-2": "npx tsx lab1-2/main.ts",
-    "lab3": "npx tsx lab3/main.ts"
+    "lab3-4": "npx tsx lab3-4/main.ts"
   },
   "devDependencies": {
     "@types/graphviz": "^0.0.39",

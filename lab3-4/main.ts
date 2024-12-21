@@ -210,6 +210,50 @@ const printGrammarTable = (
 	return result;
 };
 
+const determinizeAutomaton = (
+	table: Map<string, Map<string, string>>
+): Map<string, Map<string, string>> => {
+	const newTable: Map<string, Map<string, string>> = new Map();
+
+	const processedStates: Set<string> = new Set();
+	const statesQueue: string[] = [];
+
+	const initialState = Array.from(table.values())[0]?.keys().next().value as string;
+	if (!initialState) throw new Error("Таблица переходов пуста.");
+
+	statesQueue.push(initialState);
+	processedStates.add(initialState);
+
+	while (statesQueue.length > 0) {
+		const currentState = statesQueue.shift()!;
+		const newTransitions: Map<string, string> = new Map();
+
+		for (const [signal, stateToStates] of table.entries()) {
+			const stateParts = currentState.split(',');
+			const reachableStates: Set<string> = new Set();
+
+			for (const part of stateParts) {
+				const transitions = stateToStates.get(part);
+				if (transitions && transitions !== '-') {
+					transitions.split(',').forEach(s => reachableStates.add(s));
+				}
+			}
+
+			const newState = Array.from(reachableStates).sort().join(',');
+			newTransitions.set(signal, newState || '-');
+
+			if (newState && newState !== '-' && !processedStates.has(newState)) {
+				statesQueue.push(newState);
+				processedStates.add(newState);
+			}
+		}
+
+		newTable.set(currentState, newTransitions);
+	}
+
+	return newTable;
+};
+
 const main = async () => {
 	const rl = readline.createInterface({
 		input: process.stdin,
@@ -227,7 +271,10 @@ const main = async () => {
 
 			try {
 				const grammarTable = grammarToTable(parseInput(data));
+				console.log('Недерминизированный автомат:')
 				console.log(printGrammarTable(grammarTable));
+				console.log('Дерминизированный автомат:')
+				console.log(printGrammarTable(determinizeAutomaton(grammarTable)));
 			} catch (error) {
 				console.error(`Ошибка при парсинге грамматики: ${error.message}`);
 			} finally {
