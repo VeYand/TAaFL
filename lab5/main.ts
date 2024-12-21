@@ -44,10 +44,30 @@ function splitWithLimit(str, separator, limit) {
 
 const emptySignal = '@'
 let newStateIterator = -1
+const tempNames = Array.from({length: 26}, (_, i) => String.fromCharCode(65 + i));
+const isTempName = (str: string) => tempNames.includes(str)
+let subExpressionIterator = 0;
 const baseStateName = 'q'
 const getNewStateName = () => baseStateName + (++newStateIterator).toString()
 let isGetFinishStateCalled = false
 const getFinishState = () => isGetFinishStateCalled ? getNewStateName() : baseStateName + 'f'
+
+const prepareRegexp = (regexp: Expression) => {
+	let result = '';
+
+	for (let i = 0; i < regexp.length; i++) {
+		const current = regexp[i];
+		const next = regexp[i + 1];
+
+		result += current;
+
+		if (next && !['|', '*', '+', '('].includes(current)  && !['|', '*', '+'].includes(next)) {
+			result += '.';
+		}
+	}
+
+	return result;
+};
 
 const regparse = (input: Expression): NFA => {
 	const startState = getNewStateName()
@@ -56,7 +76,7 @@ const regparse = (input: Expression): NFA => {
 	let transitions: Transition[] = [{
 		from: states[0],
 		to: states[1],
-		expression: input,
+		expression: prepareRegexp(input.toLowerCase()),
 	}]
 
 	while (true) {
@@ -73,12 +93,27 @@ const regparse = (input: Expression): NFA => {
 			break
 		}
 
-		for (const transition of transitionsCopy) {
+		for (let transition of transitionsCopy) {
 			if (isExpressionSimple(transition.expression)) {
 				continue
 			}
 
-			simplifyTransitionExpression(transition, transitionsCopy, states)
+			if (isContainsParenthesis(transition.expression)) {
+				const {result, map} = replaceParenthesisSubexpressions(transition.expression)
+				if (isExpressionSimple(result)) {
+					const restored = restoreParenthesisSubexpressions(result, map)
+					transition.expression = restored
+					simplifyTransitionExpression(transition, transitionsCopy, states)
+				} else {
+					transition.expression = result
+					simplifyTransitionExpression(transition, transitionsCopy, states)
+					for (const toRestore of transitionsCopy) {
+						toRestore.expression = restoreParenthesisSubexpressions(toRestore.expression, map, !isExpressionSimple(toRestore.expression))
+					}
+				}
+			} else {
+				simplifyTransitionExpression(transition, transitionsCopy, states)
+			}
 		}
 		transitions = transitionsCopy
 	}
@@ -91,12 +126,70 @@ const regparse = (input: Expression): NFA => {
 	}
 }
 
+function replaceParenthesisSubexpressions(expression: Expression): { result: string; map: Map<string, string> } {
+	const result: string[] = [];
+	const map = new Map<string, string>();
+	const stack: number[] = [];
+
+	for (let i = 0; i < expression.length; i++) {
+		const char = expression[i];
+
+		if (char === '(') {
+			stack.push(i);
+		} else if (char === ')') {
+			if (stack.length > 0) {
+				const startIndex = stack.pop()!;
+				const subExpression = expression.substring(startIndex + 1, i);
+
+				if (subExpressionIterator > tempNames.length - 2) {
+					throw new Error('Ахахахахах, не бей')
+				}
+
+				const subKey = tempNames[++subExpressionIterator];
+				map.set(subKey, subExpression);
+
+				if (stack.length === 0) {
+					result.push(subKey);
+				}
+			}
+		} else {
+			if (stack.length === 0) {
+				result.push(char);
+			}
+		}
+	}
+
+	return {
+		result: result.join(''),
+		map,
+	};
+}
+
+function restoreParenthesisSubexpressions(input: string, map: Map<string, string>, addParenthesis = false): string {
+	let result = input;
+
+	for (const [key, value] of map.entries()) {
+		result = result.split(key).join(
+			addParenthesis ? `(${value})` : `${value}`
+		);
+	}
+
+	return result;
+}
+
+
 const isExpressionSimple = (expression: Expression) => {
 	return !expression.includes('+')
 		&& !expression.includes('*')
 		&& !expression.includes('|')
 		&& !expression.includes('(')
 		&& !expression.includes(')')
+		&& !expression.includes('.')
+		|| isTempName(expression)
+}
+
+const isContainsParenthesis = (expression: Expression) => {
+	return expression.includes('(') || expression.includes(')')
 }
 
 function deleteTransition(transition: Transition, transitions: Transition[]) {
@@ -166,14 +259,42 @@ function simplifyExpressionWithPlus(transition: Transition, transitions: Transit
 	})
 }
 
+function simplifyExpressionWithDot(transition: Transition, transitions: Transition[], states: State[]) {
+	const {from, to, expression} = transition
+
+	const dotSides = splitWithLimit(expression, '.', 2)
+
+	deleteTransition(transition, transitions)
+
+	const leftSide = dotSides[0]
+
+	const newState = getNewStateName()
+	states.push(newState)
+	transitions.push({
+		from: from,
+		to: newState,
+		expression: leftSide,
+	})
+	transitions.push({
+		from: newState,
+		to: to,
+		expression: dotSides.length > 1 ? dotSides[1] : emptySignal,
+	})
+}
+
 const simplifySideWithoutOr = (transition: Transition, transitions: Transition[], states: State[]) => {
-	const {expression} = transition
+	const { expression } = transition;
 
 	const plusIndex = expression.indexOf('+');
 	const asteriskIndex = expression.indexOf('*');
+	const dotIndex = expression.indexOf('.');
+
+	if (dotIndex !== -1 && (plusIndex === -1 || dotIndex < plusIndex) && (asteriskIndex === -1 || dotIndex < asteriskIndex)) {
+		return simplifyExpressionWithDot(transition, transitions, states);
+	}
 
 	if (plusIndex === -1 && asteriskIndex === -1) {
-		return
+		return;
 	} else if (plusIndex === -1) {
 		return simplifyExpressionWithAny(transition, transitions, states);
 	} else if (asteriskIndex === -1) {
@@ -183,8 +304,7 @@ const simplifySideWithoutOr = (transition: Transition, transitions: Transition[]
 	} else {
 		return simplifyExpressionWithAny(transition, transitions, states);
 	}
-
-}
+};
 
 const simplifyTransitionExpression = (transition: Transition, transitions: Transition[], states: State[]) => {
 	const {from, to, expression} = transition
@@ -233,7 +353,8 @@ const convertNFAtoMealy = (nfa: NFA): MealyAutomaton => {
 };
 
 function main() {
-	const nfa = regparse('a*|a*|b+');
+	const nfa = regparse('((ab|aab)*a*)*');
+	// const nfa = regparse('a(b|c)d|abc*|c+');
 	// console.log(JSON.stringify(nfa, null, 4));
 	Automaton.saveMealyGraph(convertNFAtoMealy(nfa), 'lab5/output/automaton.png', true)
 }
