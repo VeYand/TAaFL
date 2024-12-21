@@ -16,13 +16,30 @@ type NFA = {
 	endState: State;
 };
 
-function splitWithLimit(str: string, separator: string, limit: number): string[] {
-	const parts = str.split(separator);
-	if (parts.length <= limit) {
-		return parts;
+function splitWithLimit(str, separator, limit) {
+	if (limit <= 0) {
+		return [];
 	}
 
-	return [...parts.slice(0, limit - 1), parts.slice(limit - 1).join(separator)];
+	const result = [];
+	let remainingStr = str;
+
+	for (let i = 0; i < limit - 1; i++) {
+		const index = remainingStr.indexOf(separator);
+
+		if (index === -1) {
+			break;
+		}
+
+		result.push(remainingStr.slice(0, index));
+		remainingStr = remainingStr.slice(index + separator.length);
+	}
+
+	if (remainingStr.length > 0) {
+		result.push(remainingStr);
+	}
+
+	return result;
 }
 
 const emptySignal = '@'
@@ -82,15 +99,20 @@ const isExpressionSimple = (expression: Expression) => {
 		&& !expression.includes(')')
 }
 
+function deleteTransition(transition: Transition, transitions: Transition[]) {
+	const {from, to, expression} = transition
+	const oldTransition = transitions.find(t => t.from === from && t.to === to && t.expression === expression)
+	if (oldTransition !== undefined) {
+		transitions.splice(transitions.indexOf(oldTransition), 1)
+	}
+}
+
 function simplifyExpressionWithAny(transition: Transition, transitions: Transition[], states: State[]) {
 	const {from, to, expression} = transition
 
 	const anySides = splitWithLimit(expression, '*', 2)
 
-	const oldTransition = transitions.find(t => t.from === from && t.to === to)
-	if (oldTransition !== undefined) {
-		transitions.splice(transitions.indexOf(oldTransition), 1)
-	}
+	deleteTransition(transition, transitions)
 
 	const leftSide = anySides[0]
 
@@ -111,7 +133,7 @@ function simplifyExpressionWithAny(transition: Transition, transitions: Transiti
 	transitions.push({
 		from: newState,
 		to: to,
-		expression: (anySides.length > 1 && anySides[1]) ? anySides[1] : emptySignal,
+		expression: anySides.length > 1 ? anySides[1] : emptySignal,
 	})
 }
 
@@ -120,10 +142,7 @@ function simplifyExpressionWithPlus(transition: Transition, transitions: Transit
 
 	const plusSides = splitWithLimit(expression, '+', 2)
 
-	const oldTransition = transitions.find(t => t.from === from && t.to === to)
-	if (oldTransition !== undefined) {
-		transitions.splice(transitions.indexOf(oldTransition), 1)
-	}
+	deleteTransition(transition, transitions)
 
 	const leftSide = plusSides[0]
 
@@ -143,7 +162,7 @@ function simplifyExpressionWithPlus(transition: Transition, transitions: Transit
 	transitions.push({
 		from: newState,
 		to: to,
-		expression: (plusSides.length > 1 && plusSides[1]) ? plusSides[1] : emptySignal,
+		expression: plusSides.length > 1 ? plusSides[1] : emptySignal,
 	})
 }
 
@@ -175,15 +194,11 @@ const simplifyTransitionExpression = (transition: Transition, transitions: Trans
 	}
 
 	const orSides = splitWithLimit(expression, '|', 2)
-	console.log(orSides)
-	if (orSides.length !== 2 || !orSides[0] || !orSides[1]) {
+	if (orSides.length !== 2) {
 		throw new Error('Нормально пиши, нормально будет')
 	}
 
-	const oldTransition = transitions.find(t => t.from === from && t.to === to)
-	if (oldTransition !== undefined) {
-		transitions.splice(transitions.indexOf(oldTransition), 1)
-	}
+	deleteTransition(transition, transitions)
 	transitions.push({
 		from: from,
 		to: to,
