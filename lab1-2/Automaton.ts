@@ -24,6 +24,10 @@ type AutomatonDataType = MooreAutomaton | MealyAutomaton
 class Automaton implements IAutomaton {
 	private automaton: AutomatonDataType | undefined
 
+	public fromMealy(automaton: MealyAutomaton) {
+		this.automaton = automaton
+	}
+
 	public read(filePath: string, type: AutomatonType): void {
 		switch (type) {
 			case "Mealy":
@@ -195,7 +199,7 @@ class Automaton implements IAutomaton {
 		fs.writeFileSync(filePath, lines.join('\n'), 'utf8')
 	}
 
-	private static saveMealyGraph(automaton: MealyAutomaton, filePath: string): void {
+	static saveMealyGraph(automaton: MealyAutomaton, filePath: string, showOnlyOutput = false): void {
 		const g = graphviz.digraph("MealyAutomaton2")
 
 		automaton.states.forEach(state => {
@@ -205,7 +209,7 @@ class Automaton implements IAutomaton {
 		automaton.transitions.forEach((inputMap, currentState) => {
 			inputMap.forEach((transition, inputSignal) => {
 				const {nextState, output} = transition
-				const label = `${inputSignal} / ${output}`
+				const label = showOnlyOutput ? output : `${inputSignal} / ${output}`
 				g.addEdge(currentState, nextState, {label})
 			})
 		})
