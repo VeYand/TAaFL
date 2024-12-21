@@ -61,7 +61,7 @@ const prepareRegexp = (regexp: Expression) => {
 
 		result += current;
 
-		if (next && !['|', '*', '+', '('].includes(current)  && !['|', '*', '+'].includes(next)) {
+		if (next && !['|', '*', '+', '('].includes(current) && !['|', '*', '+'].includes(next)) {
 			result += '.';
 		}
 	}
@@ -170,7 +170,7 @@ function restoreParenthesisSubexpressions(input: string, map: Map<string, string
 
 	for (const [key, value] of map.entries()) {
 		result = result.split(key).join(
-			addParenthesis ? `(${value})` : `${value}`
+			addParenthesis ? `(${value})` : `${value}`,
 		);
 	}
 
@@ -283,7 +283,7 @@ function simplifyExpressionWithDot(transition: Transition, transitions: Transiti
 }
 
 const simplifySideWithoutOr = (transition: Transition, transitions: Transition[], states: State[]) => {
-	const { expression } = transition;
+	const {expression} = transition;
 
 	const plusIndex = expression.indexOf('+');
 	const asteriskIndex = expression.indexOf('*');
@@ -352,11 +352,119 @@ const convertNFAtoMealy = (nfa: NFA): MealyAutomaton => {
 	};
 };
 
+const determinizeNFA = (nfa: NFA): NFA => {
+	const epsilonClosureMap = new Map();
+
+	for (const state of nfa.states) {
+		const closure = new Set([state]);
+		const stack = [state];
+
+		while (stack.length > 0) {
+			const currentState = stack.pop();
+			for (const transition of nfa.transitions) {
+				if (transition.from === currentState && transition.expression === emptySignal) {
+					if (!closure.has(transition.to)) {
+						closure.add(transition.to);
+						stack.push(transition.to);
+					}
+				}
+			}
+		}
+
+		epsilonClosureMap.set(state, Array.from(closure));
+	}
+
+	const getSignals = () => {
+		const signals = new Set();
+		for (const transition of nfa.transitions) {
+			if (transition.expression !== emptySignal) {
+				signals.add(transition.expression);
+			}
+		}
+		return Array.from(signals);
+	};
+
+	const signals = getSignals();
+
+	const getTargetStates = (combinedStates, signal) => {
+		const targetStates = new Set();
+
+		for (const state of combinedStates) {
+			const epsilonClosure = epsilonClosureMap.get(state);
+
+			for (const subState of epsilonClosure) {
+				for (const transition of nfa.transitions) {
+					if (transition.from === subState && transition.expression === signal) {
+						const targetClosure = epsilonClosureMap.get(transition.to);
+						for (const target of targetClosure) {
+							targetStates.add(target);
+						}
+					}
+				}
+			}
+		}
+
+		return Array.from(targetStates);
+	};
+
+	const newStates = [];
+	const newTransitions = [];
+	const stateMap = new Map();
+	const queue = [];
+
+	const startClosure = epsilonClosureMap.get(nfa.startState);
+	const startStateName = `S0`;
+
+	stateMap.set(startStateName, startClosure);
+	newStates.push(startStateName);
+	queue.push(startStateName);
+
+	while (queue.length > 0) {
+		const currentStateName = queue.shift();
+		const currentStateSet = stateMap.get(currentStateName);
+
+		for (const signal of signals) {
+			const targetStates = getTargetStates(currentStateSet, signal);
+			if (targetStates.length > 0) {
+				const existingStateName = Array.from(stateMap.entries()).find(([, value]) => {
+					return value.length === targetStates.length && value.every((v) => targetStates.includes(v));
+				})?.[0];
+
+				const targetStateName = existingStateName || `S${newStates.length}`;
+
+				if (!existingStateName) {
+					stateMap.set(targetStateName, targetStates);
+					newStates.push(targetStateName);
+					queue.push(targetStateName);
+				}
+
+				newTransitions.push({
+					from: currentStateName,
+					to: targetStateName,
+					expression: signal,
+				});
+			}
+		}
+	}
+
+	const endStates = newStates.filter((stateName) => {
+		const combinedStates = stateMap.get(stateName);
+		return combinedStates.some((state) => state === nfa.endState);
+	});
+
+	return {
+		states: newStates,
+		transitions: newTransitions,
+		startState: startStateName,
+		endState: endStates.length > 0 ? endStates[0] : null,
+	};
+};
+
 function main() {
-	const nfa = regparse('((ab|aab)*a*)*');
-	// const nfa = regparse('a(b|c)d|abc*|c+');
+	const nfa = regparse('(a(b|c)d|abc*|c+)');
 	// console.log(JSON.stringify(nfa, null, 4));
 	Automaton.saveMealyGraph(convertNFAtoMealy(nfa), 'lab5/output/automaton.png', true)
+	Automaton.saveMealyGraph(convertNFAtoMealy(determinizeNFA(nfa)), 'lab5/output/determinized.png', true)
 }
 
 if (require.main === module) {
