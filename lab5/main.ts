@@ -53,6 +53,14 @@ let isGetFinishStateCalled = false
 const getFinishState = () => isGetFinishStateCalled ? getNewStateName() : baseStateName + 'f'
 
 const prepareRegexp = (regexp: Expression) => {
+	if (!regexp.length) {
+		return regexp
+	}
+
+	if (regexp[0] === '(' && regexp[regexp.length - 1] === ')' && regexp.length > 1) {
+		regexp = regexp.slice(1, regexp.length - 1)
+	}
+
 	let result = '';
 
 	for (let i = 0; i < regexp.length; i++) {
@@ -449,20 +457,28 @@ const determinizeNFA = (nfa: NFA): NFA => {
 
 	const endStates = newStates.filter((stateName) => {
 		const combinedStates = stateMap.get(stateName);
-		return combinedStates.some((state) => state === nfa.endState);
+		return combinedStates.some(state => state === nfa.endState);
 	});
 
+	const fuckingTransitions: Transition[] = newTransitions.map(transition => ({
+		from: endStates.includes(transition.from) ? (transition.from + ' (end)').trim() : transition.from.trim(),
+		to: endStates.includes(transition.to) ? (transition.to + ' (end)').trim() : transition.to.trim(),
+		expression: transition.expression.trim() || 'lox',
+	}))
+
 	return {
-		states: newStates,
-		transitions: newTransitions,
+		states: newStates.map(state => endStates.includes(state) ? (state + ' (end)').trim() : state.trim()),
+		transitions: fuckingTransitions,
 		startState: startStateName,
-		endState: endStates.length > 0 ? endStates[0] : null,
+		endState: null,
 	};
 };
 
 function main() {
-	const nfa = regparse('(a(b|c)d|abc*|c+)');
-	// console.log(JSON.stringify(nfa, null, 4));
+	const nfa = regparse('(a(b(a|b)*|(a*b|cd)c)d|abc*|c+)');
+	console.log(JSON.stringify(nfa, null, 4));
+	console.log(JSON.stringify(determinizeNFA(nfa), null, 4));
+
 	Automaton.saveMealyGraph(convertNFAtoMealy(nfa), 'lab5/output/automaton.png', true)
 	Automaton.saveMealyGraph(convertNFAtoMealy(determinizeNFA(nfa)), 'lab5/output/determinized.png', true)
 }
