@@ -460,15 +460,15 @@ const determinizeNFA = (nfa: NFA): NFA => {
 		return combinedStates.some(state => state === nfa.endState);
 	});
 
-	const fuckingTransitions: Transition[] = newTransitions.map(transition => ({
+	const markedTransitions: Transition[] = newTransitions.map(transition => ({
 		from: endStates.includes(transition.from) ? (transition.from + ' (end)').trim() : transition.from.trim(),
 		to: endStates.includes(transition.to) ? (transition.to + ' (end)').trim() : transition.to.trim(),
-		expression: transition.expression.trim() || 'lox',
+		expression: transition.expression.trim(),
 	}))
 
 	return {
 		states: newStates.map(state => endStates.includes(state) ? (state + ' (end)').trim() : state.trim()),
-		transitions: fuckingTransitions,
+		transitions: markedTransitions,
 		startState: startStateName,
 		endState: null,
 	};
