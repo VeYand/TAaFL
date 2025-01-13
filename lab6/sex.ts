@@ -117,39 +117,85 @@ class Lexer {
 		}
 	}
 
-	private skipComment(): void {
-		if (this.currentChar === '/' && this.peek() === '/') {
-			while (this.currentChar && this.currentChar !== '\n') {
-				this.advance();
-			}
-		} else if (this.currentChar === '{') {
-			while (this.currentChar && this.currentChar !== '}') {
-				this.advance();
-			}
-			this.advance();
-		}
-	}
-
-	private number(): Token {
+	private skipComment(): Token | null {
+		const startLine = this.line;
 		const startColumn = this.column;
 		let result = '';
-		while (this.currentChar && /\d/.test(this.currentChar)) {
-			result += this.currentChar;
-			this.advance();
-		}
-		if (this.currentChar === '.') {
-			result += this.currentChar;
-			this.advance();
-			while (this.currentChar && /\d/.test(this.currentChar)) {
+
+		if (this.currentChar === '/' && this.peek() === '/') {
+			while (this.currentChar && this.currentChar !== '\n') {
 				result += this.currentChar;
 				this.advance();
 			}
 			return {
-				type: Lexeme.FLOAT,
+				type: Lexeme.LINE_COMMENT,
 				lexeme: result,
-				position: {line: this.line, column: startColumn},
+				position: {line: startLine, column: startColumn},
+			};
+		} else if (this.currentChar === '{') {
+			result += this.currentChar;
+			this.advance();
+
+			while (this.currentChar && this.currentChar !== '}') {
+				result += this.currentChar;
+				this.advance();
+			}
+
+			if (this.currentChar === '}') {
+				result += this.currentChar;
+				this.advance();
+			} else {
+				return {
+					type: Lexeme.BAD,
+					lexeme: result,
+					position: {line: startLine, column: startColumn},
+				};
+			}
+
+			return {
+				type: Lexeme.BLOCK_COMMENT,
+				lexeme: result,
+				position: {line: startLine, column: startColumn},
 			};
 		}
+
+		return null;
+	}
+
+
+	private number(): Token {
+		const startColumn = this.column;
+		let result = '';
+
+		while (this.currentChar && /\d/.test(this.currentChar)) {
+			result += this.currentChar;
+			this.advance();
+		}
+
+		if (this.currentChar === '.') {
+			if (this.peek() === '.') {
+				return {
+					type: Lexeme.INTEGER,
+					lexeme: result,
+					position: {line: this.line, column: startColumn},
+				};
+			} else {
+				result += this.currentChar;
+				this.advance();
+
+				while (this.currentChar && /\d/.test(this.currentChar)) {
+					result += this.currentChar;
+					this.advance();
+				}
+
+				return {
+					type: Lexeme.FLOAT,
+					lexeme: result,
+					position: {line: this.line, column: startColumn},
+				};
+			}
+		}
+
 		return {
 			type: Lexeme.INTEGER,
 			lexeme: result,
@@ -281,12 +327,10 @@ class Lexer {
 				continue;
 			}
 			if (this.currentChar === '/' && this.peek() === '/') {
-				this.skipComment();
-				continue;
+				return this.skipComment();
 			}
 			if (this.currentChar === '{') {
-				this.skipComment();
-				continue;
+				return this.skipComment();
 			}
 			if (/[a-zA-Z_]/.test(this.currentChar)) {
 				return this.identifier();

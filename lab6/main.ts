@@ -17,7 +17,7 @@ function formatTokens(tokens: Token[]): string {
 		.map(token => {
 			const {type, lexeme, position} = token;
 
-			return `${getEnumName(type)} (${position.line}, ${position.column}) "${lexeme}"`;
+			return `${getEnumName(type)} (${position.line}, ${position.column + 1}) "${lexeme}"`;
 		})
 		.join('\n');
 }
