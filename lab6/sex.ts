@@ -165,11 +165,24 @@ class Lexer {
 
 	private number(): Token {
 		const startColumn = this.column;
+		const startLine = this.line;
 		let result = '';
 
 		while (this.currentChar && /\d/.test(this.currentChar)) {
 			result += this.currentChar;
 			this.advance();
+		}
+
+		if (this.currentChar && /[a-zA-Z]/.test(this.currentChar)) {
+			while (this.currentChar && !/\s|[:;]/.test(this.currentChar)) {
+				result += this.currentChar;
+				this.advance();
+			}
+			return {
+				type: Lexeme.BAD,
+				lexeme: result,
+				position: {line: startLine, column: startColumn},
+			};
 		}
 
 		if (this.currentChar === '.') {
