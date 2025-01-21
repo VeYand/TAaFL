@@ -1,15 +1,23 @@
-import {MealyAutomaton, MealyTransitions} from '../lab1-2/types';
+import {
+	InputSignal,
+	MealyAutomaton,
+	MealyTransitions,
+	MooreAutomaton,
+	MooreStateOutputs,
+	MooreTransitions, TransitionMoore,
+} from '../lab1-2/types';
 import {Automaton} from '../lab1-2/Automaton';
+import {minimize} from './minimizeUtils'
 
 type State = string;
 type Expression = string;
-type Transition = {
+export type Transition = {
 	from: State;
 	to: State;
 	expression: Expression;
 };
 
-type NFA = {
+export type NFA = {
 	states: State[];
 	transitions: Transition[];
 	startState: State;
@@ -57,9 +65,9 @@ const prepareRegexp = (regexp: Expression) => {
 		return regexp
 	}
 
-	if (regexp[0] === '(' && regexp[regexp.length - 1] === ')' && regexp.length > 1) {
-		regexp = regexp.slice(1, regexp.length - 1)
-	}
+	// if (regexp[0] === '(' && regexp[regexp.length - 1] === ')' && regexp.length > 1) {
+	// 	regexp = regexp.slice(1, regexp.length - 1)
+	// }
 
 	let result = '';
 
@@ -340,7 +348,7 @@ const simplifyTransitionExpression = (transition: Transition, transitions: Trans
 }
 
 
-const convertNFAtoMealy = (nfa: NFA): MealyAutomaton => {
+const convertDFAtoMealy = (nfa: NFA): MealyAutomaton => {
 	const mealyTransitions: MealyTransitions = new Map();
 	let inputIter = 0
 	for (const state of nfa.states) {
@@ -474,13 +482,46 @@ const determinizeNFA = (nfa: NFA): NFA => {
 	};
 };
 
-function main() {
-	const nfa = regparse('(a(b(a|b)*|(a*b|cd)c)d|abc*|c+)');
-	console.log(JSON.stringify(nfa, null, 4));
-	console.log(JSON.stringify(determinizeNFA(nfa), null, 4));
+function convertDfaToMoore(dfa: NFA): MooreAutomaton {
+	const states = dfa.states;
+	const inputSignals = Array.from(new Set(dfa.transitions.map(t => t.expression)));
 
-	Automaton.saveMealyGraph(convertNFAtoMealy(nfa), 'lab5/output/automaton.png', true)
-	Automaton.saveMealyGraph(convertNFAtoMealy(determinizeNFA(nfa)), 'lab5/output/determinized.png', true)
+	const stateOutputs: MooreStateOutputs = new Map();
+	states.forEach(state => {
+		stateOutputs.set(state, `Output_${state}`);
+	});
+
+	const transitions: MooreTransitions = new Map();
+	states.forEach(state => {
+		const stateTransitions = new Map<InputSignal, TransitionMoore>();
+		dfa.transitions
+			.filter(t => t.from === state)
+			.forEach(t => {
+				stateTransitions.set(t.expression, {nextState: t.to});
+			});
+		transitions.set(state, stateTransitions);
+	});
+
+	return {
+		type: 'Moore',
+		states,
+		inputSignals,
+		stateOutputs,
+		transitions,
+	};
+}
+
+function main() {
+	// const nfa = regparse('(a|b)*(a(a|b)*a|b(a|b)*b)');
+	const nfa = regparse('ab*((a|b*)df(b|a*))')
+
+
+	const determinized = determinizeNFA(nfa)
+	const minimized = minimize(determinized)
+
+	Automaton.saveMealyGraph(convertDFAtoMealy(nfa), 'lab5/output/automaton.png', true)
+	Automaton.saveMealyGraph(convertDFAtoMealy(determinized), 'lab5/output/determinized.png', true)
+	Automaton.saveMealyGraph(convertDFAtoMealy(minimized), 'lab5/output/minimized.png', true)
 }
 
 if (require.main === module) {

@@ -217,7 +217,7 @@ class Automaton implements IAutomaton {
 		g.output("png", filePath)
 	}
 
-	private static showMooreGraph(automaton: MooreAutomaton, filePath: string): void {
+	static showMooreGraph(automaton: MooreAutomaton, filePath: string): void {
 		const g = graphviz.digraph("MooreAutomaton2")
 
 		automaton.states.forEach(state => {
@@ -252,7 +252,7 @@ class Automaton implements IAutomaton {
 		return convertMooreToMealy(automaton)
 	}
 
-	private static minimizeMealy(automaton: MealyAutomaton): MealyAutomaton {
+	static minimizeMealy(automaton: MealyAutomaton): MealyAutomaton {
 		const {states, inputSignals, transitions} = automaton;
 
 		let partition: State[][] = [states];
@@ -339,7 +339,7 @@ class Automaton implements IAutomaton {
 	}
 
 
-	private static minimizeMoore(automaton: MooreAutomaton): MooreAutomaton {
+	static minimizeMoore(automaton: MooreAutomaton): MooreAutomaton {
 		const {states, inputSignals, stateOutputs, transitions} = automaton;
 
 		let partition: State[][] = [];
