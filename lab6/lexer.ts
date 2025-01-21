@@ -163,16 +163,39 @@ class Lexer {
 		const startLine = this.line;
 		let result = '';
 		let isFloat = false;
+		let dotCount = 0;
 
 		while (this.currentChar && /\d/.test(this.currentChar)) {
 			result += this.currentChar;
 			this.advance();
 		}
 
-		if (this.currentChar === '.' && /\d/.test(this.peek()!)) {
+		if (this.currentChar === '.' && this.peek() === '.') {
+			return {
+				type: Lexeme.INTEGER,
+				lexeme: result,
+				position: {line: startLine, column: startColumn},
+			};
+		}
+
+		if (this.currentChar === '.') {
+			while (this.currentChar === '.') {
+				result += this.currentChar;
+				dotCount++;
+				this.advance();
+			}
+			if (dotCount > 1 || !/\d/.test(this.currentChar || '')) {
+				while (this.currentChar && /[a-zA-Z\d.]/.test(this.currentChar)) {
+					result += this.currentChar;
+					this.advance();
+				}
+				return {
+					type: Lexeme.BAD,
+					lexeme: result,
+					position: {line: startLine, column: startColumn},
+				};
+			}
 			isFloat = true;
-			result += this.currentChar;
-			this.advance();
 
 			while (this.currentChar && /\d/.test(this.currentChar)) {
 				result += this.currentChar;
@@ -276,23 +299,18 @@ class Lexer {
 		let result = '';
 
 		this.advance();
-		while (this.currentChar && this.currentChar !== '\'' && this.currentChar !== '\n') {
+		while (this.currentChar && this.currentChar !== '"' && this.currentChar !== '\n') {
 			result += this.currentChar;
 			this.advance();
 		}
 
-		if (this.currentChar === '\'') {
+		if (this.currentChar === '"') {
 			this.advance();
 			return {
 				type: Lexeme.STRING,
-				lexeme: `"${result}"`,
+				lexeme: `${result}`,
 				position: {line: startLine, column: startColumn},
 			};
-		}
-
-		while (this.currentChar && !/\s/.test(this.currentChar)) {
-			result += this.currentChar;
-			this.advance();
 		}
 
 		return {
@@ -382,14 +400,14 @@ class Lexer {
 			if (this.currentChar === '{') {
 				return this.skipComment();
 			}
+			if (this.currentChar === '"') {
+				return this.string();
+			}
 			if (/[a-zA-Z_а-яА-Я]/.test(this.currentChar)) {
 				return this.identifierOrInvalid();
 			}
 			if (/\d/.test(this.currentChar)) {
 				return this.number();
-			}
-			if (this.currentChar === '\'') {
-				return this.string();
 			}
 			return this.operatorOrPunctuation();
 		}
