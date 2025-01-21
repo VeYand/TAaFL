@@ -1,6 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import {Lexeme, Lexer, Token} from './sex'
+import {Lexeme, Lexer, Token} from './lexer'
 
 function getEnumName(value: string): string | undefined {
 	for (const key in Lexeme) {
