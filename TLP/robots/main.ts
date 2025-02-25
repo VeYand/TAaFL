@@ -70,7 +70,6 @@ const testCases = [
 	"start    stop", // ERR 2
 	"start  on45 on45 on45 on45 on45 left stop", // OK 8
 	"start left  step_( 67890 )  hands_up  hands_up  hands_up  left hands_down  hands_down hands_down stop", // OK 13
-
 ]
 
 const main = () => {

@@ -16,18 +16,17 @@ class Parser {
 	}
 
 	protected matchNumber(): boolean {
-		let numberStr = ''
-
-		while ('0123456789'.includes(this.peek() ?? '')) {
-			numberStr += this.peek()
+		const token = this.peek()
+		if (token !== undefined && /^[0-9]+$/.test(token)) {
 			this.currentToken++
 			if (this.currentToken > this.furthest) {
 				this.furthest = this.currentToken
 			}
+			return true
 		}
-
-		return numberStr.length > 0
+		return false
 	}
+
 
 	protected match(expected: string): boolean {
 		if (this.peek() === expected) {
