@@ -1,22 +1,40 @@
 class Parser {
 	private currentToken = 0
+	private furthest = 0
 
 	constructor(
 		private tokens: string[],
 	) {
 	}
 
+	public getTokensCount(): number {
+		return this.tokens.length
+	}
+
 	protected getCurrentToken(): number {
 		return this.currentToken
 	}
 
-	protected getTokensCount(): number {
-		return this.tokens.length
+	protected matchNumber(): boolean {
+		let numberStr = ''
+
+		while ('0123456789'.includes(this.peek() ?? '')) {
+			numberStr += this.peek()
+			this.currentToken++
+			if (this.currentToken > this.furthest) {
+				this.furthest = this.currentToken
+			}
+		}
+
+		return numberStr.length > 0
 	}
 
 	protected match(expected: string): boolean {
 		if (this.peek() === expected) {
 			this.currentToken++
+			if (this.currentToken > this.furthest) {
+				this.furthest = this.currentToken
+			}
 			return true
 		}
 		return false
@@ -40,6 +58,10 @@ class Parser {
 		}
 		this.setCurrentToken(pos)
 		return false
+	}
+
+	public getErrorIndex(): number {
+		return this.furthest
 	}
 }
 
