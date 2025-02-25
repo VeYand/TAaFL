@@ -6,11 +6,11 @@ class Parser {
 	) {
 	}
 
-	protected getCurrentToken() {
+	protected getCurrentToken(): number {
 		return this.currentToken
 	}
 
-	protected getTokensCount() {
+	protected getTokensCount(): number {
 		return this.tokens.length
 	}
 
@@ -22,17 +22,24 @@ class Parser {
 		return false
 	}
 
-	protected peek(): string | null {
-		return this.currentToken < this.tokens.length
-			? this.tokens[this.currentToken]
-			: null
+	protected peek(): string | undefined {
+		return this.tokens[this.currentToken]
 	}
 
 	protected setCurrentToken(token: number) {
-		if (token < 0 || token >= this.tokens.length) {
+		if (token < 0 || token > this.tokens.length) {
 			throw new Error('Invalid token index')
 		}
 		this.currentToken = token
+	}
+
+	protected maybe(callable: () => boolean): boolean {
+		const pos = this.getCurrentToken()
+		if (callable()) {
+			return true
+		}
+		this.setCurrentToken(pos)
+		return false
 	}
 }
 
@@ -46,74 +53,35 @@ class FirstMonkeyPopulationParser extends Parser {
 		return this.rule1() && this.getCurrentToken() === this.getTokensCount()
 	}
 
+	// <Rule1> -> <Rule2> <RuleZ>
 	private rule1(): boolean {
-		const pos = this.getCurrentToken()
-		if (this.rule2() && this.ruleZ()) {
-			return true
-		}
-		this.setCurrentToken(pos)
-		return false
+		return this.maybe(() => this.rule2() && this.ruleZ())
 	}
 
+	// <RuleZ> -> ау <Rule2> <RuleZ> | ε
 	private ruleZ(): boolean {
-		const pos = this.getCurrentToken()
-		if (this.peek() === 'ау') {
-			this.match('ау')
-			if (this.rule2() && this.ruleZ()) {
-				return true
-			}
-			this.setCurrentToken(pos)
-			return false
-		}
-
-		return true
+		return this.maybe(() =>
+			this.match('ау') && this.rule2() && this.ruleZ()
+		) || true
 	}
 
+	// <Rule2> -> <Rule3> <RuleV>
 	private rule2(): boolean {
-		const pos = this.getCurrentToken()
-		if (this.rule3() && this.ruleV()) {
-			return true
-		}
-		this.setCurrentToken(pos)
-		return false
+		return this.maybe(() => this.rule3() && this.ruleV())
 	}
 
+	// <RuleV> -> ку <Rule3> <RuleV> | ε
 	private ruleV(): boolean {
-		const pos = this.getCurrentToken()
-		if (this.peek() === 'ку') {
-			this.match('ку')
-			if (this.rule3() && this.ruleV()) {
-				return true
-			}
-			this.setCurrentToken(pos)
-			return false
-		}
-
-		return true
+		return this.maybe(() =>
+			this.match('ку') && this.rule3() && this.ruleV()
+		) || true
 	}
 
+	// <Rule3> -> ух-ты | хо <Rule3> | ну <Rule1> и_ну
 	private rule3(): boolean {
-		const pos = this.getCurrentToken()
-
-		if (this.match('ух-ты')) {
-			return true
-		}
-		this.setCurrentToken(pos)
-
-		if (this.match('хо')) {
-			if (this.rule3()) {
-				return true
-			}
-			this.setCurrentToken(pos)
-		}
-
-		if (this.match('ну')) {
-			if (this.rule1() && this.match('и_ну')) {
-				return true
-			}
-			this.setCurrentToken(pos)
-		}
-		return false
+		return this.maybe(() => this.match('ух-ты'))
+			|| this.maybe(() => this.match('хо') && this.rule3())
+			|| this.maybe(() => this.match('ну') && this.rule1() && this.match('и_ну'))
 	}
 }
 
@@ -124,44 +92,31 @@ class SecondMonkeyPopulationParser extends Parser {
 	}
 
 	public parse(): boolean {
-		const result = this.rule1()
-		return result && this.getCurrentToken() === this.getTokensCount()
+		return this.rule1() && this.getCurrentToken() === this.getTokensCount()
 	}
 
+	// <Rule1> -> ой <Rule2> ай <Rule3>
 	private rule1(): boolean {
-		const pos = this.getCurrentToken()
-		if (this.match('ой') && this.rule2() && this.match('ай') && this.rule3()) {
-			return true
-		}
-		this.setCurrentToken(pos)
-		return false
+		return this.maybe(() => this.match('ой') && this.rule2() && this.match('ай') && this.rule3())
 	}
 
+	// <Rule2> -> ну | ну <Rule2>
 	private rule2(): boolean {
 		if (!this.match('ну')) {
 			return false
 		}
+
 		while (this.peek() === 'ну') {
 			this.match('ну')
 		}
+
 		return true
 	}
 
+	// <Rule3> -> ух-ты | хо <Rule3> хо
 	private rule3(): boolean {
-		const pos = this.getCurrentToken()
-
-		if (this.match('ух-ты')) {
-			return true
-		}
-		this.setCurrentToken(pos)
-
-		if (this.match('хо')) {
-			if (this.rule3() && this.match('хо')) {
-				return true
-			}
-			this.setCurrentToken(pos)
-		}
-		return false
+		return this.maybe(() => this.match('ух-ты'))
+			|| this.maybe(() => this.match('хо') && this.rule3() && this.match('хо'))
 	}
 }
 
