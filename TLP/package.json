@@ -1,7 +1,8 @@
 {
   "scripts": {
     "monkeys": "npx tsx monkeys/main.ts",
-    "robots": "npx tsx robots/main.ts"
+    "robots": "npx tsx robots/main.ts",
+    "rgr": "npx tsx rgr/main.ts"
   },
   "devDependencies": {
     "@types/graphviz": "^0.0.39",
