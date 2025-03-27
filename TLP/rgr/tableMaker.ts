@@ -15,7 +15,7 @@ type ParsingTable = ParsingTable[]
 
 
 const parseGrammar = (grammar: IndexedGrammar): ParsingTable => {
-
+	//
 }
 
 
