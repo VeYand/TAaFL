@@ -32,7 +32,7 @@ const ARROW_SEPARATOR = '->'
 const TRANSITION_ALTERNATIVE_SEPARATOR = '|'
 
 
-const indexGrammar = (grammar: string): IndexedGrammar => {
+	const indexGrammar = (grammar: string): IndexedGrammar => {
 	const indexedGrammar: IndexedGrammar = []
 
 	type GrammarLine = {
