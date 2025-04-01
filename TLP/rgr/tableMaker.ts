@@ -1,4 +1,4 @@
-import {Index} from './grammarParser'
+import {Index, IndexedGrammar} from './grammarParser'
 
 type ParsingTableRow = {
 	index: Index,
@@ -12,6 +12,11 @@ type ParsingTableRow = {
 }
 
 type ParsingTable = ParsingTableRow[]
+
+const createParsingTable = (grammar: IndexedGrammar): ParsingTable => {
+	const rows: ParsingTable = []
+	return rows;
+};
 
 const parseGrammar = (input: string, table: ParsingTable): string => {
 	let transition = 0
@@ -76,4 +81,5 @@ export type {
 
 export {
 	parseGrammar,
+	createParsingTable
 }
